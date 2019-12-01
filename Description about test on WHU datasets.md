@@ -1,6 +1,6 @@
 ## Description about how to test trained model on WHU datasets:
 
-1. Download files in the test folder which include the trained model of our proposed MAPNet on WHU datasets.
+1. Download the trained model file of our proposed MAPNet on WHU datasets.
 
 2. Modify the *test_img*, *checkpoint_dir*, and *save_dir*  according to your file directory in *test.py* before run it.
 
