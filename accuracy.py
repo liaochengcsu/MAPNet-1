@@ -2,11 +2,11 @@ import numpy as np
 import scipy.misc
 import glob
 
-
+#path to the ground truth images 
 data1 = sorted(glob.glob(r'/media/lc/vge_lc/DL_DATE_BUILDING/WHU/cropped image tiles and raster labels/test/gt/*.png'))
 # data1 = sorted(glob.glob(r'/home/lc/Jupyter_projects/resatt/Urban 3D Challenge Data/d_test/gt/*.png'))
 # data1=sorted(glob.glob('/media/lc/vge_lc/spacenet/shanghai_vegas_test_result/test_label/*.png'))
-# data1=sorted(glob.glob('/media/lc/vge_lc/urban3/uba512_test/test_gt/*.png'))
+#path to the predicted image which value belong to 0 or 255 for visualization
 data2 = sorted(glob.glob('./test_result_temp/*.png'))
 
 
@@ -69,18 +69,17 @@ def cal_iou():
     b = np.sum(l2, axis=0)
     IoU = a * 1.0 / b
     print('iou:{}'.format(IoU))
-    mean_iu = np.sum(IoU[:2]) / 2
-    print('mean_iu:{}'.format(mean_iu))
+    # mean_iu = np.sum(IoU[:2]) / 2
+    # print('mean_iu:{}'.format(mean_iu))
     precision = np.sum(TP, axis=0) / (np.sum(TP, axis=0) + np.sum(FP, axis=0))
     print('--precision:{}'.format(precision))
     recall = np.sum(TP, axis=0) / (np.sum(TP, axis=0) + np.sum(FN, axis=0))
     print('--recall:{}'.format(recall))
     F_score = 2 * (precision * recall) / (precision + recall)
-    print('F_score:{}'.format(F_score))
+    print('F1_score:{}'.format(F_score))
     mean_ap = np.sum(l3) * 1.0 / np.sum(l4)
     print('mean_ap:{}'.format(mean_ap))
-    return IoU, mean_iu, mean_ap
-
+   
 
 c, d, mean_ap = cal_iou()
 

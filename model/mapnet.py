@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import tensorflow as tf
-# from keras.layers import UpSampling2D
+from keras.layers import UpSampling2D
 
 
 def conv2d(input,filters,kernel_size=3,stride=1,padding='SAME'):
@@ -9,7 +11,7 @@ def conv2d(input,filters,kernel_size=3,stride=1,padding='SAME'):
 
 
 def bn(input,is_training=True):
-    return tf.layers.batch_normalization(input,momentum=0.99,epsilon=1e-3,training=is_training)
+    return tf.layers.batch_normalization(input,momentum=0.1,epsilon=1e-5,training=is_training)
 
 
 def bottleneck(x, size,is_training,downsampe=False):
@@ -29,12 +31,12 @@ def bottleneck(x, size,is_training,downsampe=False):
         residual = tf.nn.relu(residual)
         residual = conv2d(residual, size * 4, 1, padding='VALID')
     out = tf.add(out,residual)
+
     return out
 
 
 def resblock(x, size,is_training):
     residual = x
-
     out = bn(x, is_training)
     out = tf.nn.relu(out)
     out = conv2d(out, size, 3)
@@ -47,28 +49,35 @@ def resblock(x, size,is_training):
 
 
 def stage0(x,is_training):
-    x = bottleneck(x, 64,is_training, downsampe=True)
+    x = bottleneck(x, 64,is_training,downsampe=True)
     x = bottleneck(x, 64,is_training)
     x = bottleneck(x, 64,is_training)
     x = bottleneck(x, 64,is_training)
+
     return x
 
 
-def translayer(x, in_channels, out_channels,is_training):
+def transition_layer(x, in_channels, out_channels,is_training):
     num_in = len(in_channels)
     num_out = len(out_channels)
     out = []
+
     for i in range(num_out):
         if i < num_in:
+
             residual = bn(x[i], is_training)
             residual = tf.nn.relu(residual)
             residual = conv2d(residual, out_channels[i], 3)
+
             out.append(residual)
         else:
+
             residual = bn(x[-1], is_training)
             residual = tf.nn.relu(residual)
             residual = conv2d(residual, out_channels[i], 3, stride=2)
+
             out.append(residual)
+
     return out
 
 
@@ -84,20 +93,24 @@ def convb(x, block_num, channels,is_training):
 
 def featfuse(x, channels, is_training, multi_scale_output=True):
     out = []
+
     for i in range(len(channels) if multi_scale_output else 1):
         residual = x[i]
+
         for j in range(len(channels)):
             if j > i:
                 if multi_scale_output == False:
                     y = bn(x[j], is_training)
                     y = tf.nn.relu(y)
                     y = conv2d(y, channels[j], 1, padding='VALID')
-                    out.append(tf.keras.layers.UpSampling2D(size=2 ** (j - i))(y))
+
+                    out.append(UpSampling2D(size=2 ** (j - i))(y))
                 else:
                     y = bn(x[j], is_training)
                     y = tf.nn.relu(y)
                     y = conv2d(y, channels[i], 1, padding='VALID')
-                    y = tf.keras.layers.UpSampling2D(size=2 ** (j - i))(y)
+
+                    y = UpSampling2D(size=2 ** (j - i))(y)
                     residual = tf.add(residual, y)
 
             elif j < i:
@@ -106,23 +119,28 @@ def featfuse(x, channels, is_training, multi_scale_output=True):
                     if k == i - j - 1:
                         y = bn(y, is_training)
                         y = tf.nn.relu(y)
+                        # y = conv2d(y, channels[i], 3, stride=2)
                         y = conv2d(y, channels[i], 1)
                         y = tf.layers.max_pooling2d(y, 2, 2)
 
                     else:
                         y = bn(y, is_training)
                         y = tf.nn.relu(y)
+                        # y = conv2d(y, channels[j], 3, stride=2)
                         y = conv2d(y, channels[j], 1)
                         y = tf.layers.max_pooling2d(y, 2, 2)
 
                 residual = tf.add(residual, y)
+        # residual = tf.nn.relu(residual)
         out.append(residual)
+
     return out
 
 
-def convblock(x, channels,is_training, multi_scale_output=True):
+def convblock(x, channels,is_training,multi_scale_output=True):
     residual = convb(x, 4, channels,is_training)
-    out = featfuse(residual, channels,is_training, multi_scale_output=multi_scale_output)
+    out = featfuse(residual, channels,is_training,
+                      multi_scale_output=multi_scale_output)
     return out
 
 
@@ -133,33 +151,11 @@ def stage(x, num_modules, channels, is_training,multi_scale_output=True):
             out = convblock(out, channels,is_training, multi_scale_output=False)
         else:
             out = convblock(out, channels,is_training)
+
     return out
 
 
-def pyramid_pooling_block(input, bin_sizes):
-    pool_list = []
-    h = input.shape[1]
-    c = input.shape[-1]
-    for bin_size in bin_sizes:
-        pool1 = tf.layers.average_pooling2d(input, (h // bin_size, h // bin_size), (h // bin_size, h // bin_size))
-        pool1 = conv2d(pool1, int(c)//4, 1)
-        pool1 = tf.image.resize_bilinear(pool1, (h, h))
-        pool_list.append(pool1)
-    pool = tf.concat(pool_list, axis=3)
-    return tf.add(input, pool)
-
-
-def spatial_pooling(input):
-    h,w=input.shape[1],input.shape[2]
-    p1=tf.image.resize_bilinear(tf.layers.max_pooling2d(input,2,2),(h,w))
-    p2 = tf.image.resize_bilinear(tf.layers.max_pooling2d(input, 3, 3), (h, w))
-    p3=tf.image.resize_bilinear(tf.layers.max_pooling2d(input,5,5),(h,w))
-    p4 = tf.image.resize_bilinear(tf.layers.max_pooling2d(input, 6, 6), (h, w))
-    p=tf.concat([p1,p2,p3,p4,input],axis=-1)
-    return p
-
-
-def channel_squeeze(input,filters,name=" "):
+def channel_squeeze(input,filters,ratio,name=" "):
     with tf.name_scope(name):
         squeeze=tf.reduce_mean(input,axis=[1,2])
         with tf.name_scope(name+"fc1"):
@@ -172,53 +168,75 @@ def channel_squeeze(input,filters,name=" "):
         return input*result
 
 
-def mapnet(input, is_training=True):
-    channels_s2 = [64, 128]
-    channels_s3 = [64, 128, 256]
-    num_modules_s2 = 2
-    num_modules_s3 = 3
+def spatial_pooling(input):
+    h,w=input.shape[1],input.shape[2]
+    p1=tf.image.resize_bilinear(tf.layers.max_pooling2d(input,2,2),(h,w))
+    p2 = tf.image.resize_bilinear(tf.layers.max_pooling2d(input, 3, 3), (h, w))
+    p3=tf.image.resize_bilinear(tf.layers.max_pooling2d(input,5,5),(h,w))
+    p4 = tf.image.resize_bilinear(tf.layers.max_pooling2d(input, 6, 6), (h, w))
+    p=tf.concat([p1,p2,p3,p4,input],axis=-1)
+    return p
 
-    conv_1 = conv2d(input, 64, stride=2)
+
+def mapnet(input,is_training=True):
+    channels_2 = [64, 128]
+    channels_3 = [64, 128, 256]
+    num_modules_2 = 2
+    num_modules_3 = 3
+
+    # input=tf.image.per_image_standardization(input)
+    conv_1 = conv2d(input, 64)
     conv_1 = bn(conv_1, is_training)
     conv_1 = tf.nn.relu(conv_1)
     conv_2 = conv2d(conv_1, 64)
+    conv_2=tf.layers.max_pooling2d(conv_2, 2, 2)
     conv_2 = bn(conv_2, is_training)
     conv_2 = tf.nn.relu(conv_2)
     conv_3 = conv2d(conv_2, 64)
     conv_3 = bn(conv_3, is_training)
     conv_3 = tf.nn.relu(conv_3)
-    conv_4 = tf.layers.max_pooling2d(conv_3, 2, 2)
+    conv_4 = conv2d(conv_3, 64)
+    conv_4 = bn(conv_4, is_training)
+    conv_4 = tf.nn.relu(conv_4)
+    x = tf.layers.max_pooling2d(conv_4, 2, 2)
 
-    stage1 = stage0(conv_4,is_training)
-    trans1 = translayer([stage1], [256], channels_s2,is_training)
-    stage2 = stage(trans1, num_modules_s2, channels_s2,is_training)
-    trans2 = translayer(stage2, channels_s2, channels_s3,is_training)
-    stage3 = stage(trans2, num_modules_s3, channels_s3,is_training,multi_scale_output=False)
+    la1 = stage0(x,is_training)
+    tr1 = transition_layer([la1], [256], channels_2,is_training)
 
-    stg3=tf.concat(stage3,axis=-1)
-    squeeze=channel_squeeze(stg3, stg3.shape[-1], name="squeeze")
+    st2 = stage(tr1, num_modules_2, channels_2,is_training)
+    tr2 = transition_layer(st2, channels_2, channels_3,is_training)
 
-    spatial=tf.concat([stage3[0],stage3[1]],axis=-1)
-    # spatial=pyramid_pooling_block(spatial, [1, 2, 4, 8])
-    spatial=spatial_pooling(spatial)
+    st3 = stage(tr2, num_modules_3, channels_3,is_training,multi_scale_output=False)
 
-    new_feature = tf.concat([spatial, squeeze], axis=-1)
+    st=tf.concat(st3,axis=-1)
+
+
+    print(st3)
+
+    seqeese=channel_squeeze(st, st.shape[-1], 1, name="se_leyaer")
+
+    st0=tf.concat([st3[0],st3[1]],axis=-1)
+    st0=spatial_pooling(st0)
+    new_feature = tf.concat([st0, seqeese], axis=-1)
+
+
     new_feature = bn(new_feature, is_training)
     new_feature = tf.nn.relu(new_feature)
     result=conv2d(new_feature, 128, 1, padding='SAME')
-
-    up1=tf.image.resize_bilinear(result,size=(stage3[0].shape[1]*2,stage3[0].shape[2]*2))
+    up1=tf.image.resize_bilinear(result,size=(st3[0].shape[1]*2,st3[0].shape[2]*2))
+    print(up1)
     up1 = bn(up1, is_training)
     up1 = tf.nn.relu(up1)
     up1 = conv2d(up1, 64, 3)
 
     up2 = tf.image.resize_bilinear(up1, size=(up1.shape[1]*2, up1.shape[2]*2))
+    print(up2)
     up2 = bn(up2, is_training)
     up2 = tf.nn.relu(up2)
     up2 = conv2d(up2, 32, 3)
 
     up2 = bn(up2, is_training)
     up2 = tf.nn.relu(up2)
-    final = conv2d(up2, 1, 1, padding='valid')
+    final = conv2d(up2, 1, 1, padding='VALID')
 
     return final

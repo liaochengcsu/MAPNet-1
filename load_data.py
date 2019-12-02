@@ -21,33 +21,13 @@ def load_batch(x, y):
 
 
 def prepare_data():
-    # whu 512*512 4736
-    # img = np.array(sorted(
-    #     glob.glob(r'/media/lc/vge_lc/DL_DATE_BUILDING/WHU/cropped image tiles and raster labels/train/image/*.png')))
-    # label = np.array(sorted(
-    #     glob.glob(r'/media/lc/vge_lc/DL_DATE_BUILDING/WHU/cropped image tiles and raster labels/train/gt/*.png')))
-    #
-    # test_img = np.array(sorted(
-    #     glob.glob(r'/media/lc/vge_lc/DL_DATE_BUILDING/WHU/cropped image tiles and raster labels/test/image/*.png')))
-    # test_label = np.array(sorted(
-    #     glob.glob(r'/media/lc/vge_lc/DL_DATE_BUILDING/WHU/cropped image tiles and raster labels/test/gt/*.png')))
 
-    img = np.array(sorted(glob.glob(r'./dataset/train/img/*.png')))
-    label = np.array(sorted(glob.glob(r'./dataset/train/lab/*.png')))
-    test_img = np.array(sorted(glob.glob(r'./dataset/test/img/*.png')))
-    test_label = np.array(sorted(glob.glob(r'./dataset/test/lab/*.png')))
+    train_img = np.array(sorted(glob.glob(r'./dataset/train/img/*.png')))
+    train_label = np.array(sorted(glob.glob(r'./dataset/train/lab/*.png')))
+    valid_img = np.array(sorted(glob.glob(r'./dataset/valid/img/*.png')))
+    valid_label = np.array(sorted(glob.glob(r'./dataset/valid/lab/*.png')))
 
-
-    # img = np.array(sorted(glob.glob(r'/media/lc/vge_lc/spacenet/train_rgb_image/*.png')))
-    # label = np.array(sorted(glob.glob(r'/media/lc/vge_lc/spacenet/train_label_image/*.png')))
-    # test_img=sorted(glob.glob(r'/media/lc/vge_lc/spacenet/shanghai_vegas_test_result/test_image/*.png'))
-    # test_label=sorted(glob.glob('/media/lc/vge_lc/spacenet/shanghai_vegas_test_result/test_label/*.png'))
-
-    # img = np.array(sorted(glob.glob(r'/home/lc/Jupyter_projects/resatt/Urban 3D Challenge Data/d_train/img/*.png')))
-    # label = np.array(sorted(glob.glob(r'/home/lc/Jupyter_projects/resatt/Urban 3D Challenge Data/d_train/gt/*.png')))
-    # test_img = np.array(sorted(glob.glob(r'/home/lc/Jupyter_projects/resatt/Urban 3D Challenge Data/d_test/img/*.png')))
-    # test_label = np.array(sorted(glob.glob(r'/home/lc/Jupyter_projects/resatt/Urban 3D Challenge Data/d_test/gt/*.png')))
-    return img, label, test_img, test_label
+    return train_img, train_label, valid_img, valid_label
 
 
 def data_augmentation(image, label):

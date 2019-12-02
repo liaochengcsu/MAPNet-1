@@ -13,7 +13,7 @@ from model. mapnet import mapnet
 batch_size = 1
 img = tf.placeholder(tf.float32, [batch_size, 512, 512, 3])
 
-# WHU
+# test images path to WHU datasets
 test_img = sorted(
     glob.glob(r'/media/lc/vge_lc/DL_DATE_BUILDING/WHU/cropped image tiles and raster labels/test/image/*.png'))
 # SpaceNet
@@ -26,8 +26,9 @@ pred = tf.nn.sigmoid(pred)
 saver = tf.train.Saver(tf.global_variables())
 
 
-def save():
+def predict():
     tf.global_variables_initializer().run()
+    #load trained model from checkpoint_dir
     checkpoint_dir = './checkpoint/'
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
@@ -47,9 +48,10 @@ def save():
         predict[predict >= 0.5] = 1
         result = np.squeeze(predict)
         i = i.split('.')[0]
+        #save the predicted image to ./test_result_temp with the same name of test images
         scipy.misc.imsave('./test_result_temp/{}.png'.format(i), result)
 
 
 with tf.Session() as sess:
-    save()
+    predict()
 
